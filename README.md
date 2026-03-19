@@ -265,4 +265,94 @@ EarnGuard AI directly addresses **SDG 8** (Decent Work and Economic Growth) and 
 
 ---
 
+---
+
+## Adversarial Defense & Anti-Spoofing Strategy
+
+A critical vulnerability in any location-aware insurance system is GPS spoofing — where a malicious user fakes their device location to appear inside a disruption zone and trigger a false payout. EarnGuard AI addresses this through a multi-signal verification layer that goes well beyond GPS coordinates.
+
+---
+
+### How the System Tells a Genuine Worker from a Spoofer
+
+A real delivery worker affected by heavy rain behaves in a specific, consistent way: their order acceptance rate drops, completed deliveries fall, movement patterns become erratic or stationary, and their earnings decline in proportion to the disruption severity. A spoofer, by contrast, fakes a location but cannot simultaneously fake all the correlated signals that accompany genuine disruption impact.
+
+The system cross-validates four dimensions before treating a disruption as genuine for a specific worker:
+
+| Dimension | Genuine Worker Signal | Spoofer Red Flag |
+|---|---|---|
+| Delivery activity | Orders accepted and completed drop sharply during disruption hours | Normal or high order activity despite claimed disruption |
+| Movement pattern | GPS trace shows slow, disrupted, or stationary movement consistent with rain/traffic | GPS coordinates jump unnaturally or remain perfectly static |
+| Weather-behaviour consistency | Earnings drop correlates with the exact hours the disruption was active | Earnings drop does not align with disruption window timing |
+| Historical behaviour | Pattern matches the worker's own baseline from prior disruption weeks | First-time disruption claim with no prior history of income variance |
+
+---
+
+### Data Signals Used Beyond GPS
+
+The system collects and cross-references the following signals at payout evaluation time:
+
+**Device and Motion Signals**
+- Accelerometer and gyroscope data from the worker's phone — a stationary spoof device shows no motion variance; a real worker navigating rain shows consistent movement noise
+- GPS trace continuity — real movement produces smooth coordinate transitions; spoofed locations often show teleportation jumps or perfectly looped paths
+- Device mock location flag — Android exposes a `mock_location` API flag that is checked at session start and logged
+
+**Delivery Activity Logs**
+- Orders accepted per hour during the disruption window vs the worker's historical hourly average
+- Orders completed vs orders accepted (completion ratio) — genuine disruption causes both to fall; a spoofer may show normal completion ratios
+- Time-on-platform during disruption hours — a worker genuinely unable to deliver goes offline; a spoofer may remain online with normal session activity
+
+**Weather-Behaviour Consistency**
+- Earnings drop is compared against the hourly disruption severity curve — if rainfall peaked between 14:00–18:00 and the worker's earnings dropped in a different window, the claim is flagged
+- Zone-level disruption confirmation requires correlated income drops across multiple workers in the same zone before the disruption is treated as zone-confirmed (crowd-sourced validation)
+
+**Time-Based Activity Patterns**
+- Login and session timestamps during the disruption window are compared against the worker's historical activity schedule
+- A worker who is never active on Wednesday afternoons but suddenly submits a claim for a Wednesday disruption is flagged for review
+
+**Network and Device Patterns**
+- IP geolocation is cross-checked against the claimed delivery zone — a worker claiming disruption in Koramangala but connecting from a Delhi IP is flagged
+- VPN usage detected via IP reputation databases is logged as a risk signal
+- Device fingerprint consistency — a sudden change in device ID mid-week is flagged
+
+**Claim Frequency and History**
+- Workers claiming payouts more than 3 consecutive weeks are reviewed regardless of anomaly score
+- Workers whose claim amounts consistently hit the exact coverage cap are flagged for earnings manipulation review
+- Claim rate is compared against the worker's city-zone cohort — outliers above 2 standard deviations from the cohort claim rate are escalated
+
+**Fraud Ring and Cluster Detection**
+- If more than 15% of workers in a micro-zone (radius < 500m) submit claims in the same week without a zone-confirmed disruption event, the entire cluster is held for admin review
+- New account clusters — multiple accounts registered from the same device or IP within 48 hours are flagged as potential synthetic identity fraud
+- Coordinated UPI ID patterns — payouts going to a small set of UPI accounts across many worker IDs are flagged as potential mule account rings
+
+---
+
+### UX Balance: Protecting Honest Workers
+
+The anti-spoofing layer is designed to be invisible to legitimate workers. The system's default posture is trust, not suspicion.
+
+**Auto-approval for low-risk claims:**
+- Claims with an anomaly score below 0.75 are approved and paid automatically within 2 hours — no friction, no delay
+- Workers with 4+ weeks of clean claim history and a consistent delivery pattern receive a **Trusted Worker** status that raises their auto-approval threshold to 0.85
+- Zone-confirmed disruptions (where multiple workers in the same area show correlated income drops) receive a lower scrutiny threshold — the disruption itself is the primary evidence
+
+**Transparent flagging for suspicious claims:**
+- Workers whose claims are held for review receive an immediate SMS: *"Your payout is being reviewed. We will update you within 4 hours."*
+- The review SLA is 4 hours — workers are never left waiting without a status update
+- If a held claim is approved after review, the payout is credited with a brief explanation: *"Your claim was verified. ₹1,200 has been credited."*
+- If a claim is rejected, the worker receives a plain-language reason and a link to a one-tap appeal form
+
+**Trust score system:**
+- Every worker has a rolling trust score (0.0–1.0) updated weekly based on claim history, delivery consistency, and device signal integrity
+- Trust score operates silently in the background — it is never surfaced to the worker as a number
+- A high trust score reduces the anomaly threshold required for auto-approval
+- A low trust score does not block payouts — it routes them to faster human review rather than automatic rejection
+
+**Fallback checks before rejection:**
+- No claim is rejected by the automated system alone — all rejections require a human admin action
+- Before a claim is rejected, the system runs a secondary check: if the worker's zone had a confirmed disruption and their delivery logs show a genuine income drop, the claim is escalated for approval even if other signals are ambiguous
+- Workers can submit a one-tap appeal with optional supporting evidence (e.g., a photo of flooded roads) — this is optional and never required for standard claims
+
+---
+
 *Phase-1 Hackathon Submission — EarnGuard AI Team*
